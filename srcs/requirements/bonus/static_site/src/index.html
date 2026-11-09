@@ -1,0 +1,86 @@
+<!--
+==============================================================================
+📜 FILE: srcs/requirements/bonus/static_site/src/index.html
+👤 AUTHOR: zsid-ele <zsid-ele@student.42abudhabi.ae>
+🏫 SCHOOL: 42 Abu Dhabi
+🎯 PURPOSE:
+   This is the pure HTML/CSS showcase page for the Inception bonus requirement
+   created by zsid-ele. It demonstrates serving content without PHP processing
+   or database queries.
+
+🧒 KID-FRIENDLY CONCEPT & STORY:
+   This is the painted sign hanging on zsid-ele's castle wall.
+   It doesn't need electricity or magical potions to display — it just smiles
+   and greets anyone who visits the `/static/` viewing gallery!
+
+🎓 EVALUATION CHECKPOINT:
+   Evaluators will open `https://zsid-ele.42.fr/static/` in their browser and
+   verify that this page loads correctly over HTTPS through the NGINX reverse proxy.
+==============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inception Showcase — zsid-ele</title>
+    <!-- Simple inline styling for a clean, modern dark-mode aesthetic -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            margin-top: 80px;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 35px;
+            border-radius: 14px;
+            background: #16213e;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+        }
+        h1 {
+            color: #00d2d3;
+            margin-bottom: 15px;
+        }
+        p {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            color: #c8d6e5;
+        }
+        .author-box {
+            margin-top: 20px;
+            padding: 12px;
+            background: #0f3460;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .author-box strong {
+            color: #ff9f43;
+        }
+        .badge {
+            display: inline-block;
+            background: #10ac84;
+            color: #fff;
+            font-weight: bold;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏰 Welcome to zsid-ele's Inception!</h1>
+        <p>This is a lightweight static HTML page served natively with Python 3 without PHP or database overhead.</p>
+        <div class="author-box">
+            <span>Project by: <strong>zsid-ele</strong> (42 Abu Dhabi)</span>
+        </div>
+        <br/>
+        <span class="badge">Bonus Service Verified</span>
+    </div>
+</body>
+</html>

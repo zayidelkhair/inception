@@ -1,0 +1,250 @@
+# ==============================================================================
+# 📜 FILE: srcs/docker-compose.yml
+# 🎯 PURPOSE:
+#    This file is the Grand Architectural Blueprint for Inception. It tells
+#    Docker Compose which services (containers) to launch, which Dockerfiles
+#    to build, which private networks connect them, which shared storage volumes
+#    they use, and how sensitive passwords (secrets) are delivered securely.
+#
+# 🧒 KID-FRIENDLY CONCEPT & STORY:
+#    Imagine you are building a miniature city with 8 special treehouses.
+#    You don't want to explain how to build each treehouse from scratch every day.
+#    Instead, you draw one master blueprint poster:
+#    - "Treehouse 1 is the Gatekeeper (NGINX)."
+#    - "Treehouse 2 is the Baker (WordPress)."
+#    - "Treehouse 3 is the Bookkeeper (MariaDB)."
+#    - "They talk through private tin-can walkie-talkie strings (inception_net)!"
+#    - "Their secret passwords are kept in wax-sealed envelopes (Docker Secrets)!"
+#    When you show this master blueprint to the builder (Docker Compose),
+#    the entire city pops into existence with one command!
+#
+# 🎓 EVALUATION CHECKPOINT:
+#    Evaluators will check:
+#    1. Each container runs in its own isolated container (no all-in-one containers).
+#    2. Only Port 443 (NGINX), Port 8080 (cAdvisor), and Port 21 (FTP) are open
+#       to the host. MariaDB and WordPress must NOT expose public ports!
+#    3. Volumes must persist data under /home/<user>/data.
+#    4. Restart policy must be set to `always` or `on-failure`.
+#    5. Passwords must be delivered via Docker Secrets, not hardcoded.
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 📚 SERVICE 1: MARIADB (The Royal Vault & Database)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: Master MariaDB holds the giant library filing cabinets. He stores
+  # all the blog articles, user profiles, and comments. He is shy and stays deep
+  # inside the castle. Only the Baker (WordPress) is allowed to ask him for books!
+  # ----------------------------------------------------------------------------
+  mariadb:
+    # Build locally from Dockerfile (Subject strictly forbids pre-built Docker Hub images)
+    build: ./requirements/mariadb
+    image: mariadb:inception
+    container_name: mariadb
+    # restart: always ensures the container restarts if it crashes or on system boot
+    restart: always
+    # env_file supplies non-sensitive settings (database name, usernames)
+    env_file: [ .env ]
+    # secrets mounts passwords as secure temporary files in /run/secrets/
+    secrets: [ db_password, db_root_password ]
+    volumes:
+      # Persistent storage: data stays safe on the host disk even if container is deleted
+      - mariadb_vol:/var/lib/mysql
+    networks:
+      # Private bridge network: allows WordPress and MariaDB to talk by container name
+      - inception_net
+    # expose makes port 3306 available ONLY inside inception_net, NOT to the internet!
+    expose: [ "3306" ]
+
+  # ----------------------------------------------------------------------------
+  # 🐿️ SERVICE 2: REDIS (The Speedy Memory Squirrel / Cache)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: Redis sits next to the Baker with a stack of neon sticky notes.
+  # When 100 kids ask for the same dragon story, Redis hands it out from memory
+  # so MariaDB doesn't have to search the giant library 100 times!
+  # ----------------------------------------------------------------------------
+  redis:
+    build: ./requirements/bonus/redis
+    image: redis:inception
+    container_name: redis
+    restart: always
+    networks:
+      - inception_net
+    # Port 6379 is only accessible inside the private network
+    expose: [ "6379" ]
+
+  # ----------------------------------------------------------------------------
+  # 👨‍🍳 SERVICE 3: WORDPRESS (The Master Baker & Story Kitchen)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: Chef WordPress mixes code recipes (PHP) into yummy webpages (HTML).
+  # He runs PHP-FPM on port 9000 and connects to MariaDB for text and Redis for speed.
+  # ----------------------------------------------------------------------------
+  wordpress:
+    build: ./requirements/wordpress
+    image: wordpress:inception
+    container_name: wordpress
+    restart: always
+    env_file: [ .env ]
+    # Passes database password and initial WordPress admin/user credentials securely
+    secrets: [ db_password, wp_admin_password, wp_user_password ]
+    # depends_on ensures MariaDB and Redis containers are created before WordPress starts
+    depends_on: [ mariadb, redis ]
+    volumes:
+      # Shared volume holding all WordPress website files, plugins, and uploads
+      - wordpress_vol:/var/www/html
+    networks:
+      - inception_net
+    # Port 9000 uses FastCGI protocol; only NGINX talks to it directly
+    expose: [ "9000" ]
+
+  # ----------------------------------------------------------------------------
+  # 🔍 SERVICE 4: ADMINER (The Web Database Magnifying Glass)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: A friendly glass control desk. Instead of typing scary commands
+  # in a black terminal, the administrator can view MariaDB tables in a web browser!
+  # ----------------------------------------------------------------------------
+  adminer:
+    build: ./requirements/bonus/adminer
+    image: adminer:inception
+    container_name: adminer
+    restart: always
+    depends_on: [ mariadb ]
+    networks:
+      - inception_net
+    expose: [ "8080" ]
+
+  # ----------------------------------------------------------------------------
+  # 🖼️ SERVICE 5: STATIC SITE (The Instant Wooden Welcome Billboard)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: A simple painted sign on the wall. It serves a plain HTML file
+  # using Python's built-in server without needing a database or PHP kitchen!
+  # ----------------------------------------------------------------------------
+  static_site:
+    build: ./requirements/bonus/static_site
+    image: static_site:inception
+    container_name: static_site
+    restart: always
+    networks:
+      - inception_net
+    expose: [ "3000" ]
+
+  # ----------------------------------------------------------------------------
+  # 🏰 SERVICE 6: NGINX (The Royal Gatekeeper & Reverse Proxy)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: Sir NGINX stands at the castle drawbridge. He is the ONLY door to
+  # the web. He checks visitor badges (TLS certificates) and guides visitors:
+  # - Want blog posts? ➔ NGINX forwards to WordPress kitchen!
+  # - Want /adminer?   ➔ NGINX forwards to Adminer!
+  # - Want /static/?   ➔ NGINX forwards to Static Site!
+  # ----------------------------------------------------------------------------
+  nginx:
+    build: ./requirements/nginx
+    image: nginx:inception
+    container_name: nginx
+    restart: always
+    env_file: [ .env ]
+    depends_on: [ wordpress, adminer, static_site ]
+    volumes:
+      # Mounts the website files as read-only (:ro) for security!
+      - wordpress_vol:/var/www/html:ro
+    networks:
+      - inception_net
+    # ports publishes Port 443 to the physical machine! This is the sole HTTPS gateway.
+    ports:
+      - "443:443"
+
+  # ----------------------------------------------------------------------------
+  # 🩺 SERVICE 7: CADVISOR (The Royal Watchtower Doctor / Health Monitor)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: Doctor cAdvisor sits in a high watchtower with a stethoscope.
+  # He listens to the heartbeat, RAM usage, and CPU speed of every cottage!
+  # ----------------------------------------------------------------------------
+  cadvisor:
+    build: ./requirements/bonus/cadvisor
+    image: cadvisor:inception
+    container_name: cadvisor
+    restart: always
+    volumes:
+      # Read-only (:ro) mounts giving cAdvisor safe access to Linux kernel metrics
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - inception_net
+    ports:
+      # Publishes dashboard to host on port 8080 (http://localhost:8080)
+      - "8080:8080"
+
+  # ----------------------------------------------------------------------------
+  # 📦 SERVICE 8: FTP (The Secret Cargo Delivery Chute)
+  # ----------------------------------------------------------------------------
+  # 🧒 STORY: A private cargo chute. Sir Robin can fly his photo drone over the
+  # castle and drop new pictures straight into the WordPress media folder from afar!
+  # ----------------------------------------------------------------------------
+  ftp:
+    build: ./requirements/bonus/ftp
+    image: ftp:inception
+    container_name: ftp
+    restart: always
+    env_file: [ .env ]
+    secrets: [ ftp_password ]
+    depends_on: [ wordpress ]
+    volumes:
+      # Read-write access to the WordPress files to upload/download content
+      - wordpress_vol:/var/www/html
+    networks:
+      - inception_net
+    ports:
+      # Port 21 = FTP Command/Control channel
+      # Ports 21100-21110 = Passive data transfer channels
+      - "21:21"
+      - "21100-21110:21100-21110"
+
+# ------------------------------------------------------------------------------
+# 🧱 SHARED VOLUMES (Indestructible Underground Storage)
+# 🧒 CONCEPT: Docker volumes bind specific host folders to container folders.
+# Even if a container is deleted with `docker rm`, the data on disk remains!
+# ------------------------------------------------------------------------------
+volumes:
+  mariadb_vol:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/zsid-ele/data/mariadb
+  wordpress_vol:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/zsid-ele/data/wordpress
+
+# ------------------------------------------------------------------------------
+# 🌐 DOCKER NETWORK (The Walkie-Talkie Walkway)
+# 🧒 CONCEPT: A "bridge" network creates an isolated private local network.
+# Containers can call each other by container name (e.g. `ping mariadb`).
+# Hackers on the outside cannot touch any container that hasn't published ports!
+# ------------------------------------------------------------------------------
+networks:
+  inception_net:
+    driver: bridge
+
+# ------------------------------------------------------------------------------
+# 💌 DOCKER SECRETS (Wax-Sealed Password Envelopes)
+# 🧒 CONCEPT: Unlike environment variables, secrets are never stored in container
+# metadata or printed in crash logs. They are mounted as temporary in-memory files
+# inside `/run/secrets/<secret_name>` that disappear when the container stops!
+# ------------------------------------------------------------------------------
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  wp_admin_password:
+    file: ../secrets/wp_admin_password.txt
+  wp_user_password:
+    file: ../secrets/wp_user_password.txt
+  ftp_password:
+    file: ../secrets/ftp_password.txt

@@ -1,0 +1,67 @@
+# ==============================================================================
+# 📜 FILE: srcs/requirements/mariadb/conf/50-server.cnf
+# 👤 AUTHOR: zsid-ele <zsid-ele@student.42abudhabi.ae>
+# 🏫 SCHOOL: 42 Abu Dhabi
+# 🎯 PURPOSE:
+#    This file overrides the default MariaDB configuration for zsid-ele's
+#    Inception infrastructure. It specifies who runs the database process,
+#    where persistent data files are stored, which network interfaces MariaDB
+#    listens on, and how text characters are encoded.
+#
+# 🧒 KID-FRIENDLY CONCEPT & STORY:
+#    This is Master MariaDB's Official Rulebook in zsid-ele's Kingdom:
+#    - Rule 1: "Always sign your letters with clean handwriting (utf8mb4 emojis)!"
+#    - Rule 2: "Listen at all castle intercom slots (bind-address = 0.0.0.0) so
+#      Chef WordPress can ask for recipes from across the bridge network!"
+#    - Rule 3: "Don't waste time checking who is at the intercom with slow carrier
+#      pigeons (skip-name-resolve) — just answer immediately!"
+#
+# 🎓 EVALUATION CHECKPOINT:
+#    Evaluators will ask: "Why did you change bind-address to 0.0.0.0?"
+#    Answer: By default, Debian sets `bind-address = 127.0.0.1` (loopback only),
+#    which means MariaDB would ONLY accept connections from inside its own
+#    container! Setting it to `0.0.0.0` allows MariaDB to accept connections
+#    from the WordPress container across the Docker bridge network.
+# ==============================================================================
+
+[mysqld]
+# 👤 USER: Run the server process as the unprivileged system user 'mysql'.
+# For security: running database servers as 'root' is dangerous!
+user            = mysql
+
+# 🆔 PROCESS & SOCKET FILES:
+# pid-file stores the Process ID of the running server so scripts can track it.
+# socket allows fast local inter-process communication without TCP network overhead.
+pid-file        = /run/mysqld/mysqld.pid
+socket          = /run/mysqld/mysqld.sock
+
+# 🚪 PORT & DIRECTORIES:
+# Port 3306: Standard MySQL communication port.
+# datadir: Path where tables, indexes, and logs are written on disk.
+# In our setup, /var/lib/mysql is mounted to zsid-ele's host persistent volume!
+port            = 3306
+basedir         = /usr
+datadir         = /var/lib/mysql
+tmpdir          = /tmp
+
+# 🌐 NETWORKING SETTINGS:
+# bind-address = 0.0.0.0: Listens on all container network interfaces.
+# This enables the WordPress container to connect across the inception_net network.
+bind-address    = 0.0.0.0
+
+# ⚡ DNS PERFORMANCE:
+# skip-name-resolve: Disables slow reverse-DNS lookups for incoming IP addresses.
+# Inside Docker bridge networks, IP lookups can cause latency; disabling it makes
+# database connections instant!
+skip-name-resolve
+
+# 🛡️ CONNECTION TOLERANCE:
+# Prevents MariaDB from blocking the WordPress host if there are failed attempts
+# while WordPress is booting up.
+max_connect_errors = 1000000
+
+# 🔤 CHARACTER ENCODING:
+# utf8mb4 supports full modern Unicode, including all international languages,
+# accents, math symbols, and fun emojis (😀 🎉 🚀).
+character-set-server  = utf8mb4
+collation-server      = utf8mb4_general_ci
